@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timeline Desktop QA Harness</title>
+    <style>
+      body {
+        margin: 0;
+        background: #0c2238;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+      }
+      .wrap { padding: 14px; }
+      .label { margin: 0 0 8px; font-weight: 800; }
+      .slot {
+        width: 372px;
+        height: 292px;
+        overflow: hidden;
+      }
+      iframe {
+        width: 1200px;
+        height: 900px;
+        border: 0;
+        border-radius: 18px;
+        background: #fff;
+        transform: scale(.31);
+        transform-origin: top left;
+        box-shadow: 0 0 0 3px rgba(255,255,255,.28), 0 24px 80px rgba(0,0,0,.45);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="label">Desktop 1200x900 render scaled to fit</p>
+      <div class="slot">
+        <iframe src="./index.html"></iframe>
+      </div>
+    </div>
+  </body>
+</html>

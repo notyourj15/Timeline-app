@@ -1,4 +1,4 @@
-const APP_VERSION = '0.11.0-prealpha';
+const APP_VERSION = '0.12.0-prealpha';
 const DB_NAME = 'timeline-app-db';
 const DB_VERSION = 1;
 const STORE = 'timeline';
@@ -15,7 +15,8 @@ const DEFAULT_STATE = {
     createdAt: '',
   },
   settings: {
-    theme: 'liquid-glass',
+    theme: 'aero',
+    colorMode: 'light',
     autoSnapshots: true,
     reduceMotion: false,
     bubbleIntensity: 0.76,
@@ -35,8 +36,19 @@ const THEMES = {
     tagline: 'Modern iPhone-style translucent glass.',
   },
   aero: {
-    label: 'Aero',
-    tagline: 'Frutiger Aero gloss, bubbles, sky, and soft optimism.',
+    label: 'Frutiger Aero',
+    tagline: 'Glossy ocean glass, sky-blue chrome, bubbles, and living green.',
+  },
+};
+
+const COLOR_MODES = {
+  light: {
+    label: 'Light',
+    tagline: 'Bright sky, water, and polished translucent panels.',
+  },
+  dark: {
+    label: 'Dark',
+    tagline: 'Night ocean glass with luminous chrome and soft depth.',
   },
 };
 
@@ -52,8 +64,12 @@ let lastSnapshotDay = '';
 let wizardStep = 0;
 let wizardDraft = {
   birthdate: '',
+  birthMonth: '',
+  birthDay: '',
+  birthYear: '',
   displayName: '',
-  theme: 'liquid-glass',
+  theme: 'aero',
+  colorMode: 'light',
   autoSnapshots: true,
 };
 
@@ -66,7 +82,7 @@ async function init() {
   installGlobalErrorBoundary();
   await loadState();
   normalizeState();
-  applyTheme(state.settings.theme);
+  applyTheme(state.settings.theme, state.settings.colorMode);
   applyMotionSetting();
   bindNav();
   bindInstall();
@@ -198,7 +214,8 @@ function normalizeState() {
   if (!state.installedAt) state.installedAt = now;
   if (!state.updatedAt) state.updatedAt = now;
   if (!state.version) state.version = APP_VERSION;
-  if (!THEMES[state.settings.theme]) state.settings.theme = 'liquid-glass';
+  if (!THEMES[state.settings.theme]) state.settings.theme = 'aero';
+  if (!COLOR_MODES[state.settings.colorMode]) state.settings.colorMode = 'light';
   if (!Array.isArray(state.snapshots)) state.snapshots = [];
   if (!Array.isArray(state.datePoints)) state.datePoints = [];
   if (!state.activeTab) state.activeTab = 'now';
@@ -228,7 +245,7 @@ function setTab(tab) {
 }
 
 function render() {
-  applyTheme(state.settings.theme);
+  applyTheme(state.settings.theme, state.settings.colorMode);
   applyMotionSetting();
   updateNav();
   updateHeader();
@@ -286,6 +303,7 @@ function renderEmptyState() {
 function renderNow() {
   const stats = getLifeStats();
   const themeLabel = THEMES[state.settings.theme].label;
+  const modeLabel = COLOR_MODES[state.settings.colorMode].label;
   const nameLine = state.profile.displayName ? `${escapeHtml(state.profile.displayName)}’s timeline` : 'Birth → Today';
   return `
     <section class="stack-lg">
@@ -293,7 +311,7 @@ function renderNow() {
         <div class="hero-content">
           <div class="row between wrap">
             <span class="pill">${nameLine}</span>
-            <span class="pill">${themeLabel}</span>
+            <span class="pill">${themeLabel} · ${modeLabel}</span>
           </div>
           <div>
             <p class="hero-title">Since ${formatDateShort(stats.birth)}</p>
@@ -500,6 +518,15 @@ function renderVault() {
             </button>
           `).join('')}
         </div>
+        <h3>Appearance</h3>
+        <div class="mode-choices" role="group" aria-label="Appearance mode">
+          ${Object.entries(COLOR_MODES).map(([id, mode]) => `
+            <button class="mode-choice ${state.settings.colorMode === id ? 'active' : ''}" data-action="set-mode" data-mode="${id}" type="button">
+              <span>${mode.label}</span>
+              <small>${mode.tagline}</small>
+            </button>
+          `).join('')}
+        </div>
       </div>
 
       <div class="card stack">
@@ -567,6 +594,7 @@ function bindRenderedActions() {
     if (action === 'toggle-auto-snapshots') node.addEventListener('click', toggleAutoSnapshots);
     if (action === 'toggle-motion') node.addEventListener('click', toggleMotion);
     if (action === 'set-theme') node.addEventListener('click', () => setTheme(node.dataset.theme));
+    if (action === 'set-mode') node.addEventListener('click', () => setColorMode(node.dataset.mode));
     if (action === 'restore-snapshot') node.addEventListener('click', () => restoreSnapshot(node.dataset.snapshotId));
     if (action === 'reset-app') node.addEventListener('click', resetApp);
   });
@@ -618,11 +646,16 @@ function bindRenderedActions() {
 }
 
 function openWizard() {
+  const birthParts = splitDateInput(state.profile.birthdate || '');
   wizardStep = 0;
   wizardDraft = {
     birthdate: state.profile.birthdate || '',
+    birthMonth: birthParts.month,
+    birthDay: birthParts.day,
+    birthYear: birthParts.year,
     displayName: state.profile.displayName || '',
-    theme: state.settings.theme || 'liquid-glass',
+    theme: state.settings.theme || 'aero',
+    colorMode: state.settings.colorMode || 'light',
     autoSnapshots: state.settings.autoSnapshots !== false,
   };
   els.wizard.classList.remove('hidden');
@@ -654,7 +687,12 @@ function bindWizardActions() {
       }
       if (action === 'theme') {
         wizardDraft.theme = button.dataset.theme;
-        applyTheme(wizardDraft.theme);
+        applyTheme(wizardDraft.theme, wizardDraft.colorMode);
+        renderWizard();
+      }
+      if (action === 'mode') {
+        wizardDraft.colorMode = button.dataset.mode;
+        applyTheme(wizardDraft.theme, wizardDraft.colorMode);
         renderWizard();
       }
       if (action === 'toggle-auto') {
@@ -664,8 +702,22 @@ function bindWizardActions() {
     });
   });
 
-  const birth = document.getElementById('wizard-birthdate');
-  if (birth) birth.addEventListener('input', (event) => { wizardDraft.birthdate = event.target.value; });
+  ['birth-month', 'birth-day', 'birth-year'].forEach((part) => {
+    const input = document.getElementById(`wizard-${part}`);
+    if (!input) return;
+    input.addEventListener('input', () => {
+      wizardDraft.birthMonth = document.getElementById('wizard-birth-month')?.value || '';
+      wizardDraft.birthDay = document.getElementById('wizard-birth-day')?.value || '';
+      wizardDraft.birthYear = document.getElementById('wizard-birth-year')?.value || '';
+      wizardDraft.birthdate = composeDateInput(wizardDraft.birthYear, wizardDraft.birthMonth, wizardDraft.birthDay);
+    });
+    input.addEventListener('change', () => {
+      wizardDraft.birthMonth = document.getElementById('wizard-birth-month')?.value || '';
+      wizardDraft.birthDay = document.getElementById('wizard-birth-day')?.value || '';
+      wizardDraft.birthYear = document.getElementById('wizard-birth-year')?.value || '';
+      wizardDraft.birthdate = composeDateInput(wizardDraft.birthYear, wizardDraft.birthMonth, wizardDraft.birthDay);
+    });
+  });
   const name = document.getElementById('wizard-name');
   if (name) name.addEventListener('input', (event) => { wizardDraft.displayName = event.target.value.trim(); });
 }
@@ -673,16 +725,32 @@ function bindWizardActions() {
 function renderWizardIntro() {
   return `
     <div class="wizard-hero"><div><p class="eyebrow">Timeline</p><h2>A soft map of lived time.</h2></div></div>
-    <p class="help">This app turns birth → today into a visible, touchable shape. No account, no cloud trap, no little productivity goblin telling you to optimize your breakfast.</p>
+    <p class="help">This app turns birth to today into a visible, touchable shape. No account, no cloud trap, just your time rendered as polished glass, water, and light.</p>
     <div class="wizard-actions"><span class="pill">v${APP_VERSION}</span><button class="primary-button" data-wizard="next" type="button">Begin</button></div>
   `;
 }
 
 function renderWizardBirthdate() {
+  const currentYear = startOfToday().getFullYear();
   return `
     <div class="wizard-hero"><div><p class="eyebrow">Step 1</p><h2>Where does the line begin?</h2></div></div>
-    <label class="label" for="wizard-birthdate">Birthdate</label>
-    <input id="wizard-birthdate" class="input-field" type="date" value="${escapeAttr(wizardDraft.birthdate)}" max="${toDateInput(startOfToday())}" autofocus />
+    <div class="birth-grid" role="group" aria-label="Birth date">
+      <div>
+        <label class="label" for="wizard-birth-month">Month</label>
+        <select id="wizard-birth-month" class="select-field" autofocus>
+          <option value="">Month</option>
+          ${renderMonthOptions(wizardDraft.birthMonth)}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="wizard-birth-day">Day</label>
+        <input id="wizard-birth-day" class="input-field" inputmode="numeric" pattern="[0-9]*" type="number" min="1" max="31" value="${escapeAttr(wizardDraft.birthDay)}" placeholder="DD" />
+      </div>
+      <div>
+        <label class="label" for="wizard-birth-year">Year</label>
+        <input id="wizard-birth-year" class="input-field" inputmode="numeric" pattern="[0-9]*" type="number" min="1900" max="${currentYear}" value="${escapeAttr(wizardDraft.birthYear)}" placeholder="YYYY" />
+      </div>
+    </div>
     <label class="label" for="wizard-name" style="margin-top:14px">Display name, optional</label>
     <input id="wizard-name" class="input-field" type="text" maxlength="32" value="${escapeAttr(wizardDraft.displayName)}" placeholder="JJ, sir, or leave it blank" />
     <div class="wizard-actions"><button class="secondary-button" data-wizard="back" type="button">Back</button><button class="primary-button" data-wizard="next" type="button">Next</button></div>
@@ -698,6 +766,14 @@ function renderWizardTheme() {
           <div class="theme-swatch ${id === 'aero' ? 'aero' : 'liquid'}"></div>
           <strong>${theme.label}</strong>
           <p class="help">${theme.tagline}</p>
+        </button>
+      `).join('')}
+    </div>
+    <div class="mode-choices wizard-modes" role="group" aria-label="Appearance mode">
+      ${Object.entries(COLOR_MODES).map(([id, mode]) => `
+        <button class="mode-choice ${wizardDraft.colorMode === id ? 'active' : ''}" data-wizard="mode" data-mode="${id}" type="button">
+          <span>${mode.label}</span>
+          <small>${mode.tagline}</small>
         </button>
       `).join('')}
     </div>
@@ -726,7 +802,7 @@ function renderWizardFinish() {
   const days = birth ? Math.max(0, daysBetween(birth, today)) : 0;
   return `
     <div class="wizard-hero"><div><p class="eyebrow">Ready</p><h2>${formatNumber(days)} days will become visible.</h2></div></div>
-    <p class="help">Theme: <strong>${THEMES[wizardDraft.theme].label}</strong>. Birthdate: <strong>${birth ? formatDateShort(birth) : 'Not set'}</strong>.</p>
+    <p class="help">Theme: <strong>${THEMES[wizardDraft.theme].label}</strong>. Mode: <strong>${COLOR_MODES[wizardDraft.colorMode].label}</strong>. Birthdate: <strong>${birth ? formatDateShort(birth) : 'Not set'}</strong>.</p>
     <div class="wizard-actions"><button class="secondary-button" data-wizard="back" type="button">Back</button><button class="primary-button" data-wizard="finish" type="button">Open Timeline</button></div>
   `;
 }
@@ -745,6 +821,7 @@ async function finishWizard() {
   state.profile.displayName = wizardDraft.displayName;
   state.profile.createdAt = state.profile.createdAt || now;
   state.settings.theme = wizardDraft.theme;
+  state.settings.colorMode = wizardDraft.colorMode;
   state.settings.autoSnapshots = wizardDraft.autoSnapshots;
   state.settings.wizardComplete = true;
   state.activeTab = 'now';
@@ -910,9 +987,18 @@ async function toggleMotion() {
 async function setTheme(theme) {
   if (!THEMES[theme]) return;
   state.settings.theme = theme;
-  applyTheme(theme);
+  applyTheme(theme, state.settings.colorMode);
   await persistNow();
   toast(`${THEMES[theme].label} enabled.`);
+  render();
+}
+
+async function setColorMode(mode) {
+  if (!COLOR_MODES[mode]) return;
+  state.settings.colorMode = mode;
+  applyTheme(state.settings.theme, mode);
+  await persistNow();
+  toast(`${COLOR_MODES[mode].label} mode enabled.`);
   render();
 }
 
@@ -930,11 +1016,14 @@ async function resetApp() {
   render();
 }
 
-function applyTheme(theme) {
-  const safeTheme = THEMES[theme] ? theme : 'liquid-glass';
+function applyTheme(theme, colorMode = state.settings.colorMode) {
+  const safeTheme = THEMES[theme] ? theme : 'aero';
+  const safeMode = COLOR_MODES[colorMode] ? colorMode : 'light';
   document.body.classList.toggle('theme-liquid-glass', safeTheme === 'liquid-glass');
   document.body.classList.toggle('theme-aero', safeTheme === 'aero');
-  const color = safeTheme === 'aero' ? '#dff9ff' : '#eef7ff';
+  document.body.classList.toggle('mode-light', safeMode === 'light');
+  document.body.classList.toggle('mode-dark', safeMode === 'dark');
+  const color = safeMode === 'dark' ? '#051b2f' : safeTheme === 'aero' ? '#dff9ff' : '#eef7ff';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
   if (effectEngine) effectEngine.setTheme(safeTheme);
 }
@@ -1183,6 +1272,28 @@ function toDateInput(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function splitDateInput(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return { year: '', month: '', day: '' };
+  const [year, month, day] = value.split('-');
+  return { year, month: String(Number(month)), day: String(Number(day)) };
+}
+
+function composeDateInput(year, month, day) {
+  const cleanYear = String(year || '').trim();
+  const cleanMonth = String(month || '').trim();
+  const cleanDay = String(day || '').trim();
+  if (!cleanYear || !cleanMonth || !cleanDay) return '';
+  return `${cleanYear.padStart(4, '0')}-${cleanMonth.padStart(2, '0')}-${cleanDay.padStart(2, '0')}`;
+}
+
+function renderMonthOptions(selectedMonth) {
+  return LONG_MONTHS.map((month, index) => {
+    const value = String(index + 1);
+    const selected = value === String(selectedMonth) ? ' selected' : '';
+    return `<option value="${value}"${selected}>${month}</option>`;
+  }).join('');
 }
 
 function formatDateShort(date) {

@@ -2,7 +2,7 @@
 
 **Timeline** is a pre-alpha iPhone-first PWA for visualizing a lifespan from birthdate to today. It is intentionally soft, bubbly, and tactile rather than calendar-like.
 
-Current version: **v0.11.0-prealpha**
+Current version: **v0.12.0-prealpha**
 
 ## What is included
 
@@ -11,7 +11,8 @@ Current version: **v0.11.0-prealpha**
 - `Now`, `Timeline`, `Distance`, and `Vault` tabs
 - Theme system
   - **Liquid Glass** default theme
-  - **Aero** theme inspired by Frutiger Aero / late-2000s Aqua skeuomorphism
+  - **Frutiger Aero** default theme inspired by late-2000s glossy, oceanic interface design
+  - Light and dark appearance modes
 - Procedural bubbles, shine, caustics, and Aero leaf accents
 - IndexedDB local persistence with localStorage fallback
 - Manual JSON export/import
@@ -58,6 +59,10 @@ http://localhost:8080
 ```
 
 ## Version notes
+
+### v0.12.0-prealpha
+
+Frutiger Aero visual polish, light/dark appearance modes, smoother motion, and a setup wizard that asks for birth month, day, and year separately.
 
 ### v0.11.0-prealpha
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timeline-v0.11.0-prealpha';
+const CACHE_NAME = 'timeline-v0.12.0-prealpha';
 const APP_SHELL = [
   './',
   './index.html',
