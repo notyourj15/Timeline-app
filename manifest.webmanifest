@@ -1,0 +1,27 @@
+{
+  "name": "Timeline",
+  "short_name": "Timeline",
+  "description": "A soft, installable lifespan visualizer with Liquid Glass and Aero themes.",
+  "id": "/Timeline-app/",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#dceeff",
+  "theme_color": "#dceeff",
+  "categories": ["productivity", "lifestyle", "personalization"],
+  "icons": [
+    {
+      "src": "./assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icons/maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
